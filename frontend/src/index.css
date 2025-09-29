@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 250 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 250 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 250 20% 15%;
+
+    --primary: 250 83% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 250 30% 95%;
+    --secondary-foreground: 250 20% 15%;
+
+    --muted: 250 15% 95%;
+    --muted-foreground: 250 10% 45%;
+
+    --accent: 250 83% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 250 25% 90%;
+    --input: 250 25% 90%;
+    --ring: 250 83% 65%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 250 20% 5%;
+    --foreground: 250 15% 95%;
+
+    --card: 250 15% 8%;
+    --card-foreground: 250 15% 95%;
+
+    --popover: 250 15% 8%;
+    --popover-foreground: 250 15% 95%;
+
+    --primary: 250 83% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 250 15% 15%;
+    --secondary-foreground: 250 15% 95%;
+
+    --muted: 250 10% 15%;
+    --muted-foreground: 250 10% 65%;
+
+    --accent: 250 83% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 250 15% 20%;
+    --input: 250 15% 20%;
+    --ring: 250 83% 65%;
+  }
+}
+ 
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
+
+  [data-state="open"] .animate-accordion-down {
+    animation: accordion-down 0.2s ease-out;
+  }
+
+  [data-state="closed"] .animate-accordion-up {
+    animation: accordion-up 0.2s ease-out;
+  }
+}
