@@ -42,6 +42,8 @@ class LLMService:
         """Generate interview questions based on resume text"""
         system_prompt = """You are an expert technical interviewer. Generate interview questions that verify real hands-on experience, decisions, trade-offs, and outcomes.
 
+CRITICAL: You MUST generate the exact number of questions requested (typically 10). Each question should be based on different claims from the resume.
+
 Return ONLY valid JSON in this exact format:
 {
   "questions": [
@@ -60,7 +62,24 @@ Return ONLY valid JSON in this exact format:
           "nested": ["nested question 1", "nested question 2"]
         }
       ]
+    },
+    {
+      "id": 2,
+      "claim": "another specific claim from resume",
+      "main_question": "another main question",
+      "controls": {
+        "breadth": "Low|Medium|High",
+        "depth": 0,
+        "persona": "Evidence-first|Why-How|Metrics-driven|Storytelling"
+      },
+      "follow_ups": [
+        {
+          "question": "follow-up question text",
+          "nested": ["nested question 1", "nested question 2"]
+        }
+      ]
     }
+    // ... continue for all requested questions
   ]
 }
 
@@ -69,18 +88,28 @@ Do not include any markdown code blocks, explanations, or other text."""
         # Generate dynamic instructions
         dynamic_instructions = self._generate_dynamic_prompt(breadth, depth, persona)
 
-        user_prompt = f"""Generate {num_questions} interview questions for this resume:
+        user_prompt = f"""Generate EXACTLY {num_questions} interview questions for this resume:
 
 {resume_text[:8000]}
 
-Requirements:
-- Breadth: {breadth}
-- Depth: {depth} 
-- Persona: {persona}
+CRITICAL REQUIREMENTS:
+1. Generate EXACTLY {num_questions} questions (not fewer, not more)
+2. Each question must have a unique ID (1, 2, 3, ..., {num_questions})
+3. Each question must be based on a DIFFERENT claim from the resume
+4. Use these parameters for ALL questions:
+   - Breadth: {breadth}
+   - Depth: {depth}
+   - Persona: {persona}
 
 {dynamic_instructions}
 
-Return only valid JSON with the exact structure specified."""
+IMPORTANT: 
+- Extract {num_questions} different technical claims from the resume
+- Create one main question for each claim
+- Ensure each question has the correct number of follow-ups and nested questions
+- Make questions specific to the candidate's actual experience
+
+Return only valid JSON with exactly {num_questions} questions."""
 
         try:
             if self.client is None:
@@ -279,6 +308,21 @@ Return only valid JSON with the updated follow-ups."""
             
             if not validated_questions:
                 raise ValueError("No valid questions found in response")
+            
+            # Check if we have the expected number of questions
+            expected_count = 10  # Default expected count
+            if len(validated_questions) < expected_count:
+                logger.warning(f"Only got {len(validated_questions)} questions, expected {expected_count}")
+                # Generate additional questions to reach the expected count
+                while len(validated_questions) < expected_count:
+                    additional_question = self._generate_additional_question(
+                        resume_text="",
+                        question_id=len(validated_questions) + 1,
+                        breadth="Low",
+                        depth=1,
+                        persona="Why-How"
+                    )
+                    validated_questions.append(additional_question)
                 
             return {"questions": validated_questions}
             
@@ -712,35 +756,67 @@ Return only valid JSON with the updated follow-ups."""
         # Ultimate fallback
         raise ValueError("Could not parse any valid questions from response")
 
+    def _generate_additional_question(self, resume_text: str, question_id: int, breadth: str, depth: int, persona: str) -> Dict[str, Any]:
+        """Generate an additional question when we don't have enough"""
+        # Generate appropriate number of follow-ups based on breadth
+        follow_ups = []
+        if breadth == "Low":
+            num_follow_ups = 1
+        elif breadth == "Medium":
+            num_follow_ups = 2
+        else:  # High
+            num_follow_ups = 4
+        
+        # Generate appropriate number of nested questions based on depth
+        num_nested = 1 if depth == 1 else (2 if depth == 2 else 4)
+        
+        # Generate follow-ups with correct counts
+        for i in range(num_follow_ups):
+            nested_questions = []
+            for j in range(num_nested):
+                nested_questions.append(
+                    self._generate_nested_question_by_persona(
+                        claim="Technical experience",
+                        follow_up_index=i,
+                        nested_index=j,
+                        persona=persona
+                    )
+                )
+            
+            follow_ups.append({
+                "question": self._generate_follow_up_question_by_persona(
+                    claim="Technical experience",
+                    index=i,
+                    persona=persona
+                ),
+                "nested": nested_questions
+            })
+        
+        return {
+            "id": question_id,
+            "claim": f"Technical experience and skills (Question {question_id})",
+            "main_question": f"Can you describe your experience with technical projects and how you approach problem-solving?",
+            "controls": {
+                "breadth": breadth,
+                "depth": depth,
+                "persona": persona
+            },
+            "follow_ups": follow_ups
+        }
+
     def _create_fallback_questions(self, resume_text: str, breadth: str, depth: int, persona: str) -> Dict[str, Any]:
         """Create fallback questions when LLM fails"""
         logger.info("Creating fallback questions")
         
-        # Extract key terms from resume
-        lines = [line.strip() for line in resume_text.split('\n')[:20] if line.strip()]
-        
-        # Create basic questions
-        questions = [
-            {
-                "id": 1,
-                "claim": "Professional experience mentioned in resume",
-                "main_question": "Can you walk me through your most significant professional experience?",
-                "controls": {
-                    "breadth": breadth,
-                    "depth": depth,
-                    "persona": persona
-                },
-                "follow_ups": [
-                    {
-                        "question": "What were the main challenges you faced?",
-                        "nested": ["How did you overcome those challenges?"]
-                    },
-                    {
-                        "question": "What was the impact of your work?",
-                        "nested": ["How did you measure success?"]
-                    }
-                ]
-            }
-        ]
+        # Generate 10 questions
+        questions = []
+        for i in range(1, 11):
+            questions.append(self._generate_additional_question(
+                resume_text=resume_text,
+                question_id=i,
+                breadth=breadth,
+                depth=depth,
+                persona=persona
+            ))
         
         return {"questions": questions}
