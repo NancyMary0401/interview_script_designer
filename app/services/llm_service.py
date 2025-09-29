@@ -38,50 +38,67 @@ class LLMService:
             )
             self.model = settings.GROQ_MODEL
         
-    async def generate_questions(self, resume_text: str, num_questions: int = 10, breadth: str = "Medium", depth: int = 1, persona: str = "Why-How") -> Dict[str, Any]:
-        """Generate interview questions based on resume text"""
-        system_prompt = """You are an expert technical interviewer. Generate interview questions that verify real hands-on experience, decisions, trade-offs, and outcomes.
+    async def generate_questions(self, resume_text: str, num_questions: int = 10, breadth: str = "Low", depth: int = 0, persona: str = "Why-How") -> Dict[str, Any]:
+        """Generate interview questions based on resume text.
+        
+        For initial question generation:
+        - breadth must be "Low"
+        - depth must be 0 (no nested questions)
+        - persona must be "Why-How"
+        """
+        # Enforce parameters for initial question generation
+        if depth != 0:
+            logger.warning(f"Forcing depth=0 for initial question generation (was {depth})")
+            depth = 0
+        
+        if breadth != "Low":
+            logger.warning(f"Forcing breadth=Low for initial question generation (was {breadth})")
+            breadth = "Low"
+        
+        if persona != "Why-How":
+            logger.warning(f"Forcing persona=Why-How for initial question generation (was {persona})")
+            persona = "Why-How"
+        system_prompt = f"""You are an expert technical interviewer. Generate interview questions that verify real hands-on experience, decisions, trade-offs, and outcomes.
 
-CRITICAL: You MUST generate the exact number of questions requested (typically 10). Each question should be based on different claims from the resume.
+CRITICAL REQUIREMENTS:
+1. Generate EXACTLY {num_questions} questions (not fewer, not more)
+2. Each question must have a unique ID (1, 2, 3, ..., {num_questions})
+3. Each question must be based on a DIFFERENT claim from the resume
+4. Use these EXACT parameters for ALL questions:
+   - Breadth: {breadth}
+   - Depth: {depth}
+   - Persona: {persona}
+
+IMPORTANT: When depth is {depth}, return an empty follow_ups array for each question.
 
 Return ONLY valid JSON in this exact format:
-{
+{{
   "questions": [
-    {
+    {{
       "id": 1,
       "claim": "specific claim from resume",
       "main_question": "the main question",
-      "controls": {
-        "breadth": "Low|Medium|High",
-        "depth": 0,
-        "persona": "Evidence-first|Why-How|Metrics-driven|Storytelling"
-      },
-      "follow_ups": [
-        {
-          "question": "follow-up question text",
-          "nested": ["nested question 1", "nested question 2"]
-        }
-      ]
-    },
-    {
+      "controls": {{
+        "breadth": "{breadth}",
+        "depth": {depth},
+        "persona": "{persona}"
+      }},
+      "follow_ups": []  # Empty array when depth is {depth}
+    }},
+    {{
       "id": 2,
       "claim": "another specific claim from resume",
       "main_question": "another main question",
-      "controls": {
-        "breadth": "Low|Medium|High",
-        "depth": 0,
-        "persona": "Evidence-first|Why-How|Metrics-driven|Storytelling"
-      },
-      "follow_ups": [
-        {
-          "question": "follow-up question text",
-          "nested": ["nested question 1", "nested question 2"]
-        }
-      ]
-    }
-    // ... continue for all requested questions
+      "controls": {{
+        "breadth": "{breadth}",
+        "depth": {depth},
+        "persona": "{persona}"
+      }},
+      "follow_ups": []  # Empty array when depth is {depth}
+    }}
+    // ... continue for all {num_questions} questions
   ]
-}
+}}
 
 Do not include any markdown code blocks, explanations, or other text."""
 
@@ -96,7 +113,7 @@ CRITICAL REQUIREMENTS:
 1. Generate EXACTLY {num_questions} questions (not fewer, not more)
 2. Each question must have a unique ID (1, 2, 3, ..., {num_questions})
 3. Each question must be based on a DIFFERENT claim from the resume
-4. Use these parameters for ALL questions:
+4. Use these EXACT parameters for ALL questions:
    - Breadth: {breadth}
    - Depth: {depth}
    - Persona: {persona}
@@ -106,7 +123,7 @@ CRITICAL REQUIREMENTS:
 IMPORTANT: 
 - Extract {num_questions} different technical claims from the resume
 - Create one main question for each claim
-- Ensure each question has the correct number of follow-ups and nested questions
+- When depth is {depth}, return empty follow_ups array
 - Make questions specific to the candidate's actual experience
 
 Return only valid JSON with exactly {num_questions} questions."""
@@ -120,7 +137,7 @@ Return only valid JSON with exactly {num_questions} questions."""
             
         except Exception as e:
             logger.error(f"Error generating questions: {str(e)}")
-            return self._create_fallback_questions(resume_text, breadth, depth, persona)
+            raise  # Don't return fallback, let the error propagate to UI
     
     async def update_question(
         self,
@@ -131,14 +148,15 @@ Return only valid JSON with exactly {num_questions} questions."""
         persona: Optional[str] = None
     ) -> Dict[str, Any]:
         """Regenerate follow-ups for a question based on updated parameters"""
-        system_prompt = """You are an expert technical interviewer. Your task is to generate follow-up questions that match the exact parameters provided.
+        system_prompt = f"""You are an expert technical interviewer. Your task is to generate follow-up questions that match the exact parameters provided.
 
 CRITICAL REQUIREMENTS:
 1. For breadth="Low": Generate EXACTLY 1 follow-up
    For breadth="Medium": Generate EXACTLY 2-3 follow-ups
    For breadth="High": Generate EXACTLY 4-5 follow-ups
 
-2. For depth=1: Each follow-up MUST have EXACTLY 1 nested question
+2. For depth=0: Return EMPTY follow_ups array (no follow-ups)
+   For depth=1: Each follow-up MUST have EXACTLY 1 nested question
    For depth=2: Each follow-up MUST have EXACTLY 2-3 nested questions
    For depth=3: Each follow-up MUST have EXACTLY 4-5 nested questions
 
@@ -149,30 +167,29 @@ CRITICAL REQUIREMENTS:
    - Storytelling: Focus on context and journey
 
 Return ONLY valid JSON in this exact format:
-{
+{{
   "id": <original_id>,
   "claim": "<original_claim>",
   "main_question": "<original_main_question>",
-  "controls": {
+  "controls": {{
     "breadth": "<provided_breadth>",
     "depth": <provided_depth>,
     "persona": "<provided_persona>"
-  },
-  "follow_ups": [
-    {
-      "question": "technical follow-up question",
-      "nested": ["detailed nested question 1", "detailed nested question 2", ...]
-    },
-    ...
-  ]
-}
+  }},
+  "follow_ups": []  # Empty array when depth is 0, or array of follow-ups when depth > 0
+}}
 
 Do not include any other text or explanations."""
 
         # Get current parameters
+        logger.info(f"DEBUG: Raw parameters - breadth: {breadth}, depth: {depth}, persona: {persona}")
+        logger.info(f"DEBUG: Question controls - {question.get('controls', {})}")
+        
         current_breadth = breadth or question.get("controls", {}).get("breadth") or question.get("breadth", "Medium")
         current_depth = depth if depth is not None else question.get("controls", {}).get("depth") or question.get("depth", 1)
         current_persona = persona or question.get("controls", {}).get("persona") or question.get("persona", "Why-How")
+        
+        logger.info(f"DEBUG: Final parameters - breadth: {current_breadth}, depth: {current_depth}, persona: {current_persona}")
 
         dynamic_instructions = self._generate_dynamic_prompt(current_breadth, current_depth, current_persona)
 
@@ -190,6 +207,7 @@ REQUIRED PARAMETERS - YOU MUST FOLLOW THESE EXACTLY:
 
 2. Depth: {current_depth}
    - This determines the number of nested questions per follow-up
+   - 0: NO follow-ups (return empty follow_ups array)
    - 1: EXACTLY 1 nested question per follow-up
    - 2: EXACTLY 2-3 nested questions per follow-up
    - 3: EXACTLY 4-5 nested questions per follow-up
@@ -210,8 +228,14 @@ The follow-up questions should:
 Return only valid JSON with the updated follow-ups."""
 
         try:
+            logger.info(f"DEBUG: Calling LLM API with depth={current_depth}")
             response = await self._call_chat_api(system_prompt, user_prompt)
+            logger.info(f"DEBUG: LLM response length: {len(response)}")
+            logger.info(f"DEBUG: LLM response preview: {response[:200]}...")
+            
             updated_question = self._parse_single_question(response)
+            logger.info(f"DEBUG: Parsed question depth: {updated_question.get('controls', {}).get('depth')}")
+            logger.info(f"DEBUG: Parsed question follow_ups count: {len(updated_question.get('follow_ups', []))}")
             
             # Ensure the response uses the correct parameters
             if updated_question.get("controls"):
@@ -245,8 +269,10 @@ Return only valid JSON with the updated follow-ups."""
             instructions.append("BREADTH Low: Generate exactly 1 follow-up question.")
 
         # Depth instructions - number of nested questions per follow-up
-        # UI mapping: 1=Low, 2=Medium, 3=High
-        if depth == 1:
+        # UI mapping: 0=None, 1=Low, 2=Medium, 3=High
+        if depth == 0:
+            instructions.append("DEPTH 0: No follow-up or nested questions required.")
+        elif depth == 1:
             instructions.append("DEPTH 1 (Low): Each follow-up should have exactly 1 nested question.")
         elif depth == 2:
             instructions.append("DEPTH 2 (Medium): Each follow-up should have exactly 2-3 nested questions.")
@@ -386,12 +412,8 @@ Return only valid JSON with the updated follow-ups."""
         # Remove trailing commas
         json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
         
-        # Fix unescaped newlines in strings (basic fix)
-        json_text = json_text.replace('\n', '\\n')
-        
-        # Fix unescaped quotes in strings (very basic)
-        # This is a simplified approach - a full solution would need proper string parsing
-        json_text = re.sub(r'(?<!\\)"(?=[^"]*"[^"]*")', '\\"', json_text)
+        # DON'T replace all newlines - this breaks JSON structure
+        # Only fix unescaped newlines within string values (not structure)
         
         # Fix single quotes to double quotes
         json_text = re.sub(r"'([^']*)':", r'"\1":', json_text)
@@ -417,6 +439,16 @@ Return only valid JSON with the updated follow-ups."""
             breadth = controls.get("breadth", "Medium")
             depth = controls.get("depth", 1)
             persona = controls.get("persona", "Why-How")
+            
+            # Special case: if depth is 0, no nested questions are required
+            if depth == 0:
+                question["follow_ups"] = []
+                question["controls"] = {
+                    "breadth": breadth,
+                    "depth": depth,
+                    "persona": persona
+                }
+                return question
             
             # Determine required counts based on breadth and depth
             follow_up_counts = {
@@ -502,15 +534,33 @@ Return only valid JSON with the updated follow-ups."""
     def _parse_single_question(self, response: str) -> Dict[str, Any]:
         """Parse a single question response and ensure correct counts"""
         try:
+            logger.info(f"DEBUG: _parse_single_question - Starting to parse response")
             cleaned_response = self._clean_response(response)
-            logger.info(f"Cleaned response for single question: {cleaned_response[:200]}...")
+            logger.info(f"DEBUG: Cleaned response length: {len(cleaned_response)}")
+            logger.info(f"DEBUG: Cleaned response preview: {cleaned_response[:200]}...")
+            
             question = json.loads(cleaned_response)
+            logger.info(f"DEBUG: Successfully parsed JSON")
             
             # Get the required parameters
             controls = question.get("controls", {})
             breadth = controls.get("breadth", "Medium")
             depth = controls.get("depth", 1)
             persona = controls.get("persona", "Why-How")
+            
+            logger.info(f"DEBUG: Extracted controls - breadth: {breadth}, depth: {depth}, persona: {persona}")
+            
+            # Special case: if depth is 0, no follow-ups are required
+            if depth == 0:
+                logger.info(f"DEBUG: Depth is 0, setting empty follow_ups array")
+                question["follow_ups"] = []
+                question["controls"] = {
+                    "breadth": breadth,
+                    "depth": depth,
+                    "persona": persona
+                }
+                logger.info(f"DEBUG: Returning question with empty follow_ups")
+                return question
             
             # Determine required counts
             follow_up_counts = {
@@ -600,39 +650,43 @@ Return only valid JSON with the updated follow-ups."""
         match = re.search(question_pattern, response, re.DOTALL)
         
         if match:
-            # Generate appropriate number of follow-ups based on breadth
-            follow_ups = []
-            if breadth == "Low":
-                num_follow_ups = 1
-            elif breadth == "Medium":
-                num_follow_ups = 2
-            else:  # High
-                num_follow_ups = 4
-            
-            # Generate appropriate number of nested questions based on depth
-            num_nested = 1 if depth == 1 else (2 if depth == 2 else 4)
-            
-            # Generate follow-ups with correct counts
-            for i in range(num_follow_ups):
-                nested_questions = []
-                for j in range(num_nested):
-                    nested_questions.append(
-                        self._generate_nested_question_by_persona(
-                            claim=match.group(2),
-                            follow_up_index=i,
-                            nested_index=j,
-                            persona=persona
-                        )
-                    )
+            # Special case: if depth is 0, no follow-ups
+            if depth == 0:
+                follow_ups = []
+            else:
+                # Generate appropriate number of follow-ups based on breadth
+                follow_ups = []
+                if breadth == "Low":
+                    num_follow_ups = 1
+                elif breadth == "Medium":
+                    num_follow_ups = 2
+                else:  # High
+                    num_follow_ups = 4
                 
-                follow_ups.append({
-                    "question": self._generate_follow_up_question_by_persona(
-                        claim=match.group(2),
-                        index=i,
-                        persona=persona
-                    ),
-                    "nested": nested_questions
-                })
+                # Generate appropriate number of nested questions based on depth
+                num_nested = 1 if depth == 1 else (2 if depth == 2 else 4)
+                
+                # Generate follow-ups with correct counts
+                for i in range(num_follow_ups):
+                    nested_questions = []
+                    for j in range(num_nested):
+                        nested_questions.append(
+                            self._generate_nested_question_by_persona(
+                                claim=match.group(2),
+                                follow_up_index=i,
+                                nested_index=j,
+                                persona=persona
+                            )
+                        )
+                    
+                    follow_ups.append({
+                        "question": self._generate_follow_up_question_by_persona(
+                            claim=match.group(2),
+                            index=i,
+                            persona=persona
+                        ),
+                        "nested": nested_questions
+                    })
             
             question = {
                 "id": int(match.group(1)),

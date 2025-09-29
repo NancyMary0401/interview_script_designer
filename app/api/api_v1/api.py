@@ -62,17 +62,18 @@ async def generate_questions(
         num_questions = 10 # Default number of questions
 
         # Set correct default parameters for initial question generation
-        breadth = "Low"  # Start with Low breadth (1 follow-up per question)
-        depth = 1  # Low depth (1 nested question per follow-up)
-        persona = "Why-How"  # Default persona
+        # These parameters are fixed for initial generation and should not be overridden
+        INITIAL_BREADTH = "Low"  # Fixed low breadth for initial questions
+        INITIAL_DEPTH = 0  # Fixed no depth for initial questions
+        INITIAL_PERSONA = "Why-How"  # Fixed default persona
 
-        # Generate questions using LLM with parameters
+        # Generate questions using LLM with fixed parameters
         result = await llm_service.generate_questions(
             resume_text=resume_text,
             num_questions=num_questions,
-            breadth=breadth,
-            depth=depth,
-            persona=persona
+            breadth=INITIAL_BREADTH,
+            depth=INITIAL_DEPTH,
+            persona=INITIAL_PERSONA
         )
 
         return {"status": "success", "data": result}
@@ -80,7 +81,7 @@ async def generate_questions(
     except Exception as e:
         logger.error(f"Error generating questions: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate questions: {str(e)}"
         )
 
@@ -106,8 +107,8 @@ async def update_question(
             },
             "follow_ups": [...]
         },
-        "breadth": "Medium",  # optional - new breadth value
-        "depth": 2,           # optional - new depth value
+        "breadth": "",  # optional - new breadth value
+        "depth": "",           # optional - new depth value
         "persona": "Metrics-driven",  # optional - new persona value
         "regenerate_followups": true  # optional flag (ignored, always regenerates)
     }
@@ -120,13 +121,20 @@ async def update_question(
             raise ValueError("resume_text and question are required")
         
         # Log the incoming request for debugging
-        logger.info(f"Update request - breadth: {request.get('breadth')}, depth: {request.get('depth')}, persona: {request.get('persona')}")
-        logger.info(f"Question ID: {question.get('id')}, Main question: {question.get('main_question', '')[:100]}...")
+        logger.info(f"DEBUG: Update request received")
+        logger.info(f"DEBUG: Request keys: {list(request.keys())}")
+        logger.info(f"DEBUG: Raw breadth: {request.get('breadth')} (type: {type(request.get('breadth'))})")
+        logger.info(f"DEBUG: Raw depth: {request.get('depth')} (type: {type(request.get('depth'))})")
+        logger.info(f"DEBUG: Raw persona: {request.get('persona')} (type: {type(request.get('persona'))})")
+        logger.info(f"DEBUG: Question ID: {question.get('id')}, Main question: {question.get('main_question', '')[:100]}...")
+        logger.info(f"DEBUG: Question controls: {question.get('controls', {})}")
             
         # Get update parameters (these override the question's current values)
         breadth = request.get("breadth")
         depth = request.get("depth")
         persona = request.get("persona")
+        
+        logger.info(f"DEBUG: Extracted parameters - breadth: {breadth}, depth: {depth}, persona: {persona}")
         
         # Update question using LLM
         updated_question = await llm_service.update_question(

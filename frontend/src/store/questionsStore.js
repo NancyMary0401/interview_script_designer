@@ -32,8 +32,8 @@ const useQuestionsStore = create((set, get) => ({
         headers: {
           'Content-Type': 'multipart/form-data',
           'num_questions': '10',
-          'depth': '0',
-          'breadth': 'Low',
+          'depth': '0',  // No depth for initial questions
+          'breadth': 'Low',  // Low breadth by default
           'persona': 'Why-How'
         },
       });
@@ -47,9 +47,13 @@ const useQuestionsStore = create((set, get) => ({
 
   // Action to update a single question (e.g., for regenerating follow-ups)
   updateQuestion: async (questionId, updatedFields) => {
+    console.log('DEBUG: updateQuestion called with:', { questionId, updatedFields });
+    
     const currentQuestions = get().questions;
     const resumeText = get().resumeText; // Get the stored resume text
     const originalQuestion = currentQuestions.find(q => q.id === questionId);
+    
+    console.log('DEBUG: Original question controls:', originalQuestion?.controls);
 
     // Optimistic update
     const updatedQuestions = currentQuestions.map(q =>
@@ -76,6 +80,8 @@ const useQuestionsStore = create((set, get) => ({
         ...(updatedFields.persona !== undefined && { persona: updatedFields.persona }),
         ...(updatedFields.regenerate_followups !== undefined && { regenerate_followups: updatedFields.regenerate_followups })
       };
+
+      console.log('DEBUG: Request data being sent:', requestData);
 
       const response = await axios.post(`${API_URL}/update-question/`, requestData, {
         headers: {

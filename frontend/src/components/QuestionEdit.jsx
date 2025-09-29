@@ -51,16 +51,12 @@ const QuestionEdit = () => {
         ...updatedQuestion.controls,
         [field]: value
       };
-      
-      // Immediately trigger API update for control changes
-      updateQuestion(foundQuestion.id, {
-        [field]: value,
-        regenerate_followups: true
-      });
     } else {
       updatedQuestion[field] = value;
-      updateLocalQuestion(foundQuestion.id, updatedQuestion);
     }
+    
+    // Update local state only - no API calls
+    updateLocalQuestion(foundQuestion.id, updatedQuestion);
   };
 
   const handleSave = () => {
@@ -71,6 +67,11 @@ const QuestionEdit = () => {
   const handleRegenerateFollowups = () => {
     // Pass current controls with regenerate request
     const { breadth, depth, persona } = foundQuestion.controls || {};
+    
+    // Debug logging
+    console.log('DEBUG: handleRegenerateFollowups called');
+    console.log('DEBUG: Current controls:', { breadth, depth, persona });
+    
     updateQuestion(foundQuestion.id, {
       breadth,
       depth,
