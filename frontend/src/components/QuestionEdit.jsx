@@ -51,11 +51,16 @@ const QuestionEdit = () => {
         ...updatedQuestion.controls,
         [field]: value
       };
+      
+      // Immediately trigger API update for control changes
+      updateQuestion(foundQuestion.id, {
+        [field]: value,
+        regenerate_followups: true
+      });
     } else {
       updatedQuestion[field] = value;
+      updateLocalQuestion(foundQuestion.id, updatedQuestion);
     }
-
-    updateLocalQuestion(foundQuestion.id, updatedQuestion);
   };
 
   const handleSave = () => {
@@ -64,7 +69,14 @@ const QuestionEdit = () => {
   };
 
   const handleRegenerateFollowups = () => {
-    updateQuestion(foundQuestion.id, { regenerate_followups: true });
+    // Pass current controls with regenerate request
+    const { breadth, depth, persona } = foundQuestion.controls || {};
+    updateQuestion(foundQuestion.id, {
+      breadth,
+      depth,
+      persona,
+      regenerate_followups: true
+    });
   };
 
   const handleBack = () => {

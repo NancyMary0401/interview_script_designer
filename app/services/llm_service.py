@@ -102,27 +102,43 @@ Return only valid JSON with the exact structure specified."""
         persona: Optional[str] = None
     ) -> Dict[str, Any]:
         """Regenerate follow-ups for a question based on updated parameters"""
-        system_prompt = """You are an expert interviewer. Update the follow-ups for the given question based on the specified parameters.
+        system_prompt = """You are an expert technical interviewer. Your task is to generate follow-up questions that match the exact parameters provided.
+
+CRITICAL REQUIREMENTS:
+1. For breadth="Low": Generate EXACTLY 1 follow-up
+   For breadth="Medium": Generate EXACTLY 2-3 follow-ups
+   For breadth="High": Generate EXACTLY 4-5 follow-ups
+
+2. For depth=1: Each follow-up MUST have EXACTLY 1 nested question
+   For depth=2: Each follow-up MUST have EXACTLY 2-3 nested questions
+   For depth=3: Each follow-up MUST have EXACTLY 4-5 nested questions
+
+3. Follow persona style EXACTLY:
+   - Evidence-first: Focus on concrete proof and examples
+   - Why-How: Focus on reasoning and process
+   - Metrics-driven: Focus on numbers and measurements
+   - Storytelling: Focus on context and journey
 
 Return ONLY valid JSON in this exact format:
 {
-  "id": 1,
-  "claim": "original claim",
-  "main_question": "original main question",
+  "id": <original_id>,
+  "claim": "<original_claim>",
+  "main_question": "<original_main_question>",
   "controls": {
-    "breadth": "Low|Medium|High",
-    "depth": 0,
-    "persona": "Evidence-first|Why-How|Metrics-driven|Storytelling"
+    "breadth": "<provided_breadth>",
+    "depth": <provided_depth>,
+    "persona": "<provided_persona>"
   },
   "follow_ups": [
     {
-      "question": "follow-up question text",
-      "nested": ["nested question 1", "nested question 2"]
-    }
+      "question": "technical follow-up question",
+      "nested": ["detailed nested question 1", "detailed nested question 2", ...]
+    },
+    ...
   ]
 }
 
-Do not include markdown code blocks, explanations, or other text."""
+Do not include any other text or explanations."""
 
         # Get current parameters
         current_breadth = breadth or question.get("controls", {}).get("breadth") or question.get("breadth", "Medium")
@@ -131,22 +147,56 @@ Do not include markdown code blocks, explanations, or other text."""
 
         dynamic_instructions = self._generate_dynamic_prompt(current_breadth, current_depth, current_persona)
 
-        user_prompt = f"""Update this question with new parameters:
+        user_prompt = f"""Generate technical follow-up questions for this interview question:
 
-Original question: {json.dumps(question, indent=2)}
+ORIGINAL QUESTION:
+{json.dumps(question, indent=2)}
 
-New parameters:
-- Breadth: {current_breadth}
-- Depth: {current_depth}
-- Persona: {current_persona}
+REQUIRED PARAMETERS - YOU MUST FOLLOW THESE EXACTLY:
+1. Breadth: {current_breadth}
+   - This determines the number of follow-up questions
+   - Low: EXACTLY 1 follow-up
+   - Medium: EXACTLY 2-3 follow-ups
+   - High: EXACTLY 4-5 follow-ups
 
-{dynamic_instructions}
+2. Depth: {current_depth}
+   - This determines the number of nested questions per follow-up
+   - 1: EXACTLY 1 nested question per follow-up
+   - 2: EXACTLY 2-3 nested questions per follow-up
+   - 3: EXACTLY 4-5 nested questions per follow-up
+
+3. Persona: {current_persona}
+   - This determines the questioning style
+   - Evidence-first: Ask for concrete examples and proof
+   - Why-How: Focus on reasoning and decision-making
+   - Metrics-driven: Ask about numbers, measurements, and impact
+   - Storytelling: Focus on context and journey
+
+The follow-up questions should:
+1. Be specific to the claim: "{question['claim']}"
+2. Follow the {current_persona} style
+3. Have EXACTLY the required number of follow-ups and nested questions
+4. Be technical and detailed
 
 Return only valid JSON with the updated follow-ups."""
 
         try:
             response = await self._call_chat_api(system_prompt, user_prompt)
             updated_question = self._parse_single_question(response)
+            
+            # Ensure the response uses the correct parameters
+            if updated_question.get("controls"):
+                updated_question["controls"]["breadth"] = current_breadth
+                updated_question["controls"]["depth"] = current_depth
+                updated_question["controls"]["persona"] = current_persona
+            else:
+                updated_question["controls"] = {
+                    "breadth": current_breadth,
+                    "depth": current_depth,
+                    "persona": current_persona
+                }
+            
+            logger.info(f"Updated question with parameters - breadth: {current_breadth}, depth: {current_depth}, persona: {current_persona}")
             return updated_question
 
         except Exception as e:
@@ -157,23 +207,25 @@ Return only valid JSON with the updated follow-ups."""
         """Generate dynamic prompt instructions"""
         instructions = []
 
-        # Breadth instructions
+        # Breadth instructions - number of follow-up questions
         if breadth == "High":
-            instructions.append("BREADTH High: Generate 5-7 follow-up questions covering multiple angles.")
+            instructions.append("BREADTH High: Generate exactly 4-5 follow-up questions covering multiple angles.")
         elif breadth == "Medium":
-            instructions.append("BREADTH Medium: Generate 3-4 follow-up questions covering key aspects.")
+            instructions.append("BREADTH Medium: Generate exactly 2-3 follow-up questions covering key aspects.")
         elif breadth == "Low":
-            instructions.append("BREADTH Low: Generate 1-2 focused follow-up questions.")
+            instructions.append("BREADTH Low: Generate exactly 1 follow-up question.")
 
-        # Depth instructions
-        if depth == 0:
-            instructions.append("DEPTH 0: Each follow-up should have 1 nested question.")
-        elif depth == 1:
-            instructions.append("DEPTH 1: Each follow-up should have 1 nested question.")
+        # Depth instructions - number of nested questions per follow-up
+        # UI mapping: 1=Low, 2=Medium, 3=High
+        if depth == 1:
+            instructions.append("DEPTH 1 (Low): Each follow-up should have exactly 1 nested question.")
         elif depth == 2:
-            instructions.append("DEPTH 2: Each follow-up should have 2-3 nested questions.")
+            instructions.append("DEPTH 2 (Medium): Each follow-up should have exactly 2-3 nested questions.")
         elif depth == 3:
-            instructions.append("DEPTH 3: Each follow-up should have 4-5 nested questions.")
+            instructions.append("DEPTH 3 (High): Each follow-up should have exactly 4-5 nested questions.")
+        else:
+            # Fallback for any other values
+            instructions.append(f"DEPTH {depth}: Each follow-up should have exactly 1 nested question.")
 
         # Persona instructions
         if persona == "Evidence-first":
@@ -245,6 +297,7 @@ Return only valid JSON with the updated follow-ups."""
             raise ValueError("Empty response")
             
         text = response.strip()
+        logger.info(f"Original response length: {len(text)}")
         
         # Remove markdown code blocks
         if "```json" in text:
@@ -277,6 +330,7 @@ Return only valid JSON with the updated follow-ups."""
                     break
         
         json_text = text[start_pos:end_pos]
+        logger.info(f"Extracted JSON text length: {len(json_text)}")
         
         # Fix common JSON issues
         json_text = self._fix_json_issues(json_text)
@@ -295,6 +349,13 @@ Return only valid JSON with the updated follow-ups."""
         # This is a simplified approach - a full solution would need proper string parsing
         json_text = re.sub(r'(?<!\\)"(?=[^"]*"[^"]*")', '\\"', json_text)
         
+        # Fix single quotes to double quotes
+        json_text = re.sub(r"'([^']*)':", r'"\1":', json_text)
+        json_text = re.sub(r":\s*'([^']*)'", r': "\1"', json_text)
+        
+        # Remove any leading/trailing whitespace
+        json_text = json_text.strip()
+        
         return json_text
     
     def _validate_question(self, question: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -307,47 +368,316 @@ Return only valid JSON with the updated follow-ups."""
                     logger.warning(f"Missing required field: {field}")
                     return None
             
-            # Ensure controls exist
-            if "controls" not in question:
-                question["controls"] = {
-                    "breadth": "Medium",
-                    "depth": 1,
-                    "persona": "Why-How"
-                }
+            # Ensure controls exist with correct values
+            controls = question.get("controls", {})
+            breadth = controls.get("breadth", "Medium")
+            depth = controls.get("depth", 1)
+            persona = controls.get("persona", "Why-How")
             
-            # Ensure follow_ups exist
-            if "follow_ups" not in question:
-                question["follow_ups"] = []
+            # Determine required counts based on breadth and depth
+            follow_up_counts = {
+                "Low": 1,
+                "Medium": (2, 3),  # min, max
+                "High": (4, 5)     # min, max
+            }
             
-            # Validate follow_ups structure
-            valid_follow_ups = []
-            for follow_up in question.get("follow_ups", []):
-                if isinstance(follow_up, dict) and "question" in follow_up:
-                    if "nested" not in follow_up:
-                        follow_up["nested"] = []
-                    elif not isinstance(follow_up["nested"], list):
-                        follow_up["nested"] = []
-                    valid_follow_ups.append(follow_up)
+            nested_counts = {
+                1: 1,           # Low: exactly 1
+                2: (2, 3),      # Medium: 2-3
+                3: (4, 5)       # High: 4-5
+            }
             
-            question["follow_ups"] = valid_follow_ups
+            # Validate follow-ups exist
+            if "follow_ups" not in question or not isinstance(question["follow_ups"], list):
+                logger.warning("Invalid or missing follow-ups")
+                return None
+            
+            current_follow_ups = question["follow_ups"]
+            
+            # Validate follow-up count matches breadth
+            min_follow_ups = follow_up_counts[breadth] if isinstance(follow_up_counts[breadth], int) else follow_up_counts[breadth][0]
+            max_follow_ups = follow_up_counts[breadth] if isinstance(follow_up_counts[breadth], int) else follow_up_counts[breadth][1]
+            
+            if len(current_follow_ups) < min_follow_ups or len(current_follow_ups) > max_follow_ups:
+                logger.warning(f"Follow-up count {len(current_follow_ups)} doesn't match breadth {breadth} ({min_follow_ups}-{max_follow_ups})")
+                return None
+            
+            # Validate each follow-up has correct number of nested questions
+            min_nested = nested_counts[depth] if isinstance(nested_counts[depth], int) else nested_counts[depth][0]
+            max_nested = nested_counts[depth] if isinstance(nested_counts[depth], int) else nested_counts[depth][1]
+            
+            for follow_up in current_follow_ups:
+                if not isinstance(follow_up, dict) or "question" not in follow_up or "nested" not in follow_up:
+                    logger.warning("Invalid follow-up structure")
+                    return None
+                
+                if not isinstance(follow_up["nested"], list):
+                    logger.warning("Invalid nested questions structure")
+                    return None
+                
+                nested_count = len(follow_up["nested"])
+                if nested_count < min_nested or nested_count > max_nested:
+                    logger.warning(f"Nested question count {nested_count} doesn't match depth {depth} ({min_nested}-{max_nested})")
+                    return None
+            
+            # If we get here, the structure is valid
+            question["controls"] = {
+                "breadth": breadth,
+                "depth": depth,
+                "persona": persona
+            }
             
             return question
             
         except Exception as e:
             logger.error(f"Error validating question: {e}")
             return None
+            
+    def _generate_follow_up_question(self, claim: str, index: int) -> str:
+        """Generate a follow-up question based on the claim"""
+        follow_ups = [
+            "What specific techniques or methods did you use to achieve this improvement?",
+            "How did you measure and validate the performance gains?",
+            "What challenges did you encounter during this process?",
+            "How did you ensure the improvements were sustainable?",
+            "What was the impact on the end users and stakeholders?"
+        ]
+        return follow_ups[min(index - 1, len(follow_ups) - 1)]
+    
+    def _generate_nested_question(self, follow_up: str, index: int) -> str:
+        """Generate a nested question based on the follow-up"""
+        nested_questions = [
+            "Can you provide specific examples?",
+            "What metrics or tools did you use?",
+            "How did you overcome any obstacles?",
+            "What were the key learnings?",
+            "How would you approach this differently now?"
+        ]
+        return nested_questions[min(index - 1, len(nested_questions) - 1)]
     
     def _parse_single_question(self, response: str) -> Dict[str, Any]:
-        """Parse a single question response"""
-        cleaned_response = self._clean_response(response)
-        question = json.loads(cleaned_response)
-        validated_question = self._validate_question(question)
-        
-        if not validated_question:
-            raise ValueError("Invalid question format in response")
+        """Parse a single question response and ensure correct counts"""
+        try:
+            cleaned_response = self._clean_response(response)
+            logger.info(f"Cleaned response for single question: {cleaned_response[:200]}...")
+            question = json.loads(cleaned_response)
             
-        return validated_question
+            # Get the required parameters
+            controls = question.get("controls", {})
+            breadth = controls.get("breadth", "Medium")
+            depth = controls.get("depth", 1)
+            persona = controls.get("persona", "Why-How")
+            
+            # Determine required counts
+            follow_up_counts = {
+                "Low": 1,
+                "Medium": (2, 3),
+                "High": (4, 5)
+            }
+            nested_counts = {
+                1: 1,
+                2: (2, 3),
+                3: (4, 5)
+            }
+            
+            # Get required follow-up count
+            required_follow_ups = (
+                follow_up_counts[breadth] if isinstance(follow_up_counts[breadth], int)
+                else follow_up_counts[breadth][0]  # Use minimum for tuple
+            )
+            
+            # Get required nested count
+            required_nested = (
+                nested_counts[depth] if isinstance(nested_counts[depth], int)
+                else nested_counts[depth][0]  # Use minimum for tuple
+            )
+            
+            # Ensure we have follow-ups
+            current_follow_ups = question.get("follow_ups", [])
+            
+            # Generate more follow-ups if needed
+            while len(current_follow_ups) < required_follow_ups:
+                current_follow_ups.append({
+                    "question": self._generate_follow_up_question_by_persona(
+                        claim=question["claim"],
+                        index=len(current_follow_ups),
+                        persona=persona
+                    ),
+                    "nested": []
+                })
+            
+            # Ensure each follow-up has correct number of nested questions
+            for follow_up in current_follow_ups:
+                current_nested = follow_up.get("nested", [])
+                
+                # Generate more nested questions if needed
+                while len(current_nested) < required_nested:
+                    current_nested.append(
+                        self._generate_nested_question_by_persona(
+                            claim=question["claim"],
+                            follow_up_index=current_follow_ups.index(follow_up),
+                            nested_index=len(current_nested),
+                            persona=persona
+                        )
+                    )
+                
+                follow_up["nested"] = current_nested
+            
+            # Update the question with corrected counts
+            question["follow_ups"] = current_follow_ups[:required_follow_ups]
+            question["controls"] = {
+                "breadth": breadth,
+                "depth": depth,
+                "persona": persona
+            }
+            
+            # Validate the final structure
+            validated_question = self._validate_question(question)
+            if not validated_question:
+                raise ValueError("Failed to generate valid question structure")
+            
+            return validated_question
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error in _parse_single_question: {e}")
+            logger.error(f"Raw response: {response[:500]}")
+            # Try fallback parsing
+            return self._fallback_parse_single_question(response)
+        except Exception as e:
+            logger.error(f"Error parsing single question: {e}")
+            raise
     
+    def _fallback_parse_single_question(self, response: str, breadth: str = "Medium", depth: int = 1, persona: str = "Why-How") -> Dict[str, Any]:
+        """Fallback parsing for single question when JSON parsing fails"""
+        logger.warning("Using fallback parsing method for single question")
+        
+        # Try to extract question using regex
+        question_pattern = r'"id"\s*:\s*(\d+).*?"claim"\s*:\s*"([^"]*)".*?"main_question"\s*:\s*"([^"]*)"'
+        match = re.search(question_pattern, response, re.DOTALL)
+        
+        if match:
+            # Generate appropriate number of follow-ups based on breadth
+            follow_ups = []
+            if breadth == "Low":
+                num_follow_ups = 1
+            elif breadth == "Medium":
+                num_follow_ups = 2
+            else:  # High
+                num_follow_ups = 4
+            
+            # Generate appropriate number of nested questions based on depth
+            num_nested = 1 if depth == 1 else (2 if depth == 2 else 4)
+            
+            # Generate follow-ups with correct counts
+            for i in range(num_follow_ups):
+                nested_questions = []
+                for j in range(num_nested):
+                    nested_questions.append(
+                        self._generate_nested_question_by_persona(
+                            claim=match.group(2),
+                            follow_up_index=i,
+                            nested_index=j,
+                            persona=persona
+                        )
+                    )
+                
+                follow_ups.append({
+                    "question": self._generate_follow_up_question_by_persona(
+                        claim=match.group(2),
+                        index=i,
+                        persona=persona
+                    ),
+                    "nested": nested_questions
+                })
+            
+            question = {
+                "id": int(match.group(1)),
+                "claim": match.group(2),
+                "main_question": match.group(3),
+                "controls": {
+                    "breadth": breadth,
+                    "depth": depth,
+                    "persona": persona
+                },
+                "follow_ups": follow_ups
+            }
+            return question
+        
+        # Ultimate fallback
+        raise ValueError("Could not parse valid question from response")
+        
+    def _generate_follow_up_question_by_persona(self, claim: str, index: int, persona: str) -> str:
+        """Generate a follow-up question based on claim and persona"""
+        if persona == "Evidence-first":
+            questions = [
+                "What specific evidence demonstrates your success in this area?",
+                "Can you provide concrete examples of your implementation?",
+                "What tangible results validate this approach?",
+                "How did you document and measure these improvements?",
+                "What empirical data supports your decisions?"
+            ]
+        elif persona == "Metrics-driven":
+            questions = [
+                "What key metrics did you use to measure success?",
+                "How did you quantify the impact of your changes?",
+                "What performance benchmarks did you establish?",
+                "Can you break down the 20% improvement in numbers?",
+                "What monitoring tools did you implement?"
+            ]
+        elif persona == "Storytelling":
+            questions = [
+                "Walk me through the journey of implementing this solution.",
+                "How did this project evolve from start to finish?",
+                "What was the context behind these decisions?",
+                "How did stakeholders respond to these changes?",
+                "What memorable challenges shaped this experience?"
+            ]
+        else:  # Why-How
+            questions = [
+                "What was your reasoning behind this approach?",
+                "How did you determine the best solution?",
+                "Why did you choose these specific methods?",
+                "How did you implement these changes?",
+                "What was your decision-making process?"
+            ]
+        return questions[min(index, len(questions) - 1)]
+    
+    def _generate_nested_question_by_persona(self, claim: str, follow_up_index: int, nested_index: int, persona: str) -> str:
+        """Generate a nested question based on follow-up and persona"""
+        if persona == "Evidence-first":
+            questions = [
+                "What specific tools or technologies were involved?",
+                "How did you verify the results?",
+                "What documentation supports this?",
+                "Can you show examples of the implementation?",
+                "What testing validated this approach?"
+            ]
+        elif persona == "Metrics-driven":
+            questions = [
+                "What was the baseline vs. final measurement?",
+                "How did you track these improvements?",
+                "What metrics showed the biggest impact?",
+                "Can you quantify the resource savings?",
+                "What performance data did you collect?"
+            ]
+        elif persona == "Storytelling":
+            questions = [
+                "What led to this particular decision?",
+                "How did the team respond to this?",
+                "What unexpected discoveries did you make?",
+                "How did this affect the project timeline?",
+                "What lessons emerged from this experience?"
+            ]
+        else:  # Why-How
+            questions = [
+                "What alternatives did you consider?",
+                "How did you overcome the challenges?",
+                "Why was this the optimal solution?",
+                "How did you ensure quality?",
+                "What trade-offs did you evaluate?"
+            ]
+        return questions[min(nested_index, len(questions) - 1)]
+
     def _fallback_parse(self, response: str) -> Dict[str, Any]:
         """Fallback parsing when standard JSON parsing fails"""
         logger.warning("Using fallback parsing method")

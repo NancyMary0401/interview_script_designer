@@ -4,7 +4,6 @@ import ResumeUpload from './components/ResumeUpload';
 import QuestionList from './components/QuestionList';
 import QuestionEdit from './components/QuestionEdit';
 import ScriptControls from './components/ScriptControls';
-import IntroductionSidebar from './components/IntroductionSidebar';
 import { Toaster } from './components/ui/toaster';
 import useQuestionsStore from './store/questionsStore';
 
@@ -26,37 +25,26 @@ function AppContent() {
           </p>
         </header>
 
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          {/* Main Content */}
-          <div className="flex-1 w-full space-y-8">
-            {/* Upload Section - Only show on main page */}
-            {!isEditPage && <ResumeUpload />}
+        {/* Main Content - Single Column Layout */}
+        <div className="w-full max-w-4xl mx-auto space-y-8">
+          {/* Upload Section - Only show on main page */}
+          {!isEditPage && <ResumeUpload />}
 
-            {/* Error Display - Only show on main page */}
-            {!isEditPage && error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-                <p className="text-red-800 font-semibold">An error occurred: {error}</p>
-              </div>
-            )}
-
-            {/* Routes */}
-            <Routes>
-              <Route path="/" element={<QuestionList />} />
-              <Route path="/edit/:questionId" element={<QuestionEdit />} />
-            </Routes>
-
-            {/* Footer Controls - Only show on main page */}
-            {!isEditPage && <ScriptControls />}
-          </div>
-
-          {/* Sidebar - Only show on main page */}
-          {!isEditPage && (
-            <aside className="w-full lg:w-80 flex-shrink-0">
-              <div className="sticky top-8">
-                <IntroductionSidebar />
-              </div>
-            </aside>
+          {/* Error Display - Only show on main page */}
+          {!isEditPage && error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+              <p className="text-red-800 font-semibold">An error occurred: {error}</p>
+            </div>
           )}
+
+          {/* Routes */}
+          <Routes>
+            <Route path="/" element={<QuestionList />} />
+            <Route path="/edit/:questionId" element={<QuestionEdit />} />
+          </Routes>
+
+          {/* Footer Controls - Only show on main page */}
+          {!isEditPage && <ScriptControls />}
         </div>
       </div>
       <Toaster />

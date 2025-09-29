@@ -121,6 +121,7 @@ async def update_question(
         
         # Log the incoming request for debugging
         logger.info(f"Update request - breadth: {request.get('breadth')}, depth: {request.get('depth')}, persona: {request.get('persona')}")
+        logger.info(f"Question ID: {question.get('id')}, Main question: {question.get('main_question', '')[:100]}...")
             
         # Get update parameters (these override the question's current values)
         breadth = request.get("breadth")
@@ -142,12 +143,20 @@ async def update_question(
         
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error in update_question endpoint: {str(e)}")
+        logger.error(f"Request data: {request}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Invalid JSON in request or response: {str(e)}"
         )
+    except ValueError as e:
+        logger.error(f"Value error in update_question endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid request data: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Error updating question: {str(e)}")
+        logger.error(f"Request data: {request}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Failed to update question: {str(e)}"
