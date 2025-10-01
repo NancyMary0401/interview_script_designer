@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Slider } from './ui/slider';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { useToast } from './ui/use-toast';
+import { Loader } from './ui/loader';
 import useQuestionsStore from '../store/questionsStore';
 
 const AddQuestion = () => {
@@ -256,7 +257,14 @@ const AddQuestion = () => {
                 disabled={isSubmitting || loading}
                 className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
               >
-                {isSubmitting ? 'Adding Question...' : 'Add Question'}
+                {isSubmitting ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2" size="sm" />
+                    Adding Question...
+                  </>
+                ) : (
+                  'Add Question'
+                )}
               </Button>
             </DialogFooter>
           </form>

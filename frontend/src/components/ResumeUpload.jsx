@@ -1,8 +1,9 @@
 import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, FileText, Sparkles } from 'lucide-react';
+import { UploadCloud, FileText } from 'lucide-react';
 import useQuestionsStore from '../store/questionsStore';
 import { useToast } from './ui/use-toast';
+import { Loader } from './ui/loader';
 
 const ResumeUpload = () => {
   const generateQuestions = useQuestionsStore(state => state.generateQuestions);
@@ -57,7 +58,7 @@ const ResumeUpload = () => {
                   : 'bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg'
                 }`}>
                 {loading ? (
-                  <Sparkles className="w-10 h-10 text-white animate-pulse" />
+                  <Loader className="w-10 h-10 text-white" size="xl" />
                 ) : (
                   <UploadCloud className={`w-10 h-10 transition-colors duration-300
                     ${isDragActive ? 'text-white' : 'text-white'}`} />

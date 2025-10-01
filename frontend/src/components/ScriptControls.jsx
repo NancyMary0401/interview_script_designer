@@ -3,6 +3,7 @@ import useQuestionsStore from '../store/questionsStore';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { CheckCircle, Save, FileText, Calendar, Download } from 'lucide-react';
+import { Loader } from './ui/loader';
 import JsonViewer from './JsonViewer';
 import { useToast } from './ui/use-toast';
 
@@ -209,7 +210,14 @@ Version: 1.0`;
           </Button>
         </JsonViewer>
         <Button onClick={handleSave} disabled={loading} className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg">
-          {loading ? 'Saving...' : 'Save Script'}
+          {loading ? (
+            <>
+              <Loader className="w-4 h-4 mr-2" size="sm" />
+              Saving...
+            </>
+          ) : (
+            'Save Script'
+          )}
         </Button>
       </div>
 

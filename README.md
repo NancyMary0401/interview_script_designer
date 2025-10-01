@@ -1,219 +1,187 @@
 # Interview Script Designer
 
-A full-stack application for generating and managing technical interview scripts based on candidate resumes. Built with Next.js, shadcn/ui components, and FastAPI.
+A full-stack application for generating and managing technical interview scripts based on candidate resumes. Built with React + Vite, shadcn/ui components, and FastAPI.
 
-## Features
+## 🚀 Quick Start
 
-- Modern, responsive UI built with shadcn/ui components
-- Upload and parse resume files (PDF/text)
-- Generate interview questions using LLM
-- Update questions with different parameters (breadth, depth, persona)
-- Save and retrieve interview scripts
-- Real-time preview and editing
-- Dark/light mode support
-- SQLite database for persistence
+```bash
+# Clone the repository
+git clone <repository-url>
+cd interview_script_designer
 
-## Tech Stack
+# Install dependencies
+cd backend && pip install -r requirements.txt
+cd ../frontend && npm install
 
-### Frontend
-- Next.js 14+
-- TypeScript
-- shadcn/ui components
-- Tailwind CSS
-- React Query for data fetching
-- Zustand for state management
+# Copy environment files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 
-### Backend
-- Python 3.9+
-- FastAPI
-- SQLite database
-- LLM integration (OpenAI/Groq/Claude)
+# Edit backend/.env with your API keys
 
-## Prerequisites
+# Initialize database
+cd scripts && python create_tables.py
 
-- Node.js 18+ (Frontend)
-- Python 3.9+ (Backend)
-- pip (Python package manager)
-- pnpm (recommended) or npm
+# Start development servers (in separate terminals)
+```
 
-## Installation
+**Start Development Servers:**
+```bash
+# Terminal 1 - Backend
+cd backend
+python run.py
 
-### Frontend Setup
+# Terminal 2 - Frontend  
+cd frontend
+npm run dev
+```
 
-1. Install frontend dependencies:
-   ```bash
-   cd frontend
-   pnpm install
-   ```
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
 
-2. Set up environment variables:
-   Create a `.env.local` file in the frontend directory:
-   ```
-   NEXT_PUBLIC_API_URL=http://localhost:8000
-   ```
-
-3. Start the development server:
-   ```bash
-   pnpm dev
-   ```
-
-   The frontend will be available at `http://localhost:3000`
-
-### Backend Setup
-
-1. Create and activate a virtual environment:
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Set up environment variables:
-   Create a `.env` file in the backend directory:
-   ```
-   # Required for OpenAI
-   OPENAI_API_KEY=your_openai_api_key
-   
-   # Optional: Uncomment and set if using other providers
-   # GROQ_API_KEY=your_groq_api_key
-   # ANTHROPIC_API_KEY=your_anthropic_api_key
-   
-   # Database settings (SQLite by default)
-   DATABASE_URL=sqlite:///./interview_scripts.db
-   
-   # Security
-   SECRET_KEY=your-secret-key-here
-   ACCESS_TOKEN_EXPIRE_MINUTES=1440
-   
-   # CORS settings
-   ALLOWED_ORIGINS=http://localhost:3000
-   ```
-
-4. Initialize the database:
-   ```bash
-   python -c "from app.db.session import Base, engine; Base.metadata.create_all(bind=engine)"
-   ```
-
-5. Start the backend server:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-   The API will be available at `http://localhost:8000`
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 interview_script_designer/
-├── frontend/
+├── backend/                    # FastAPI Backend
 │   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── [...routes]
-│   ├── components/
-│   │   ├── ui/          # shadcn components
-│   │   └── custom/      # custom components
-│   ├── lib/
-│   │   └── utils.ts
-│   ├── styles/
-│   └── package.json
+│   │   ├── api/v1/           # API routes
+│   │   ├── core/             # Configuration
+│   │   ├── db/               # Database models & session
+│   │   ├── services/          # Business logic
+│   │   └── main.py           # FastAPI app
+│   ├── tests/                # Backend tests
+│   ├── requirements.txt      # Python dependencies
+│   ├── run.py               # Server runner
+│   └── .env.example         # Environment template
 │
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── models/
-│   │   └── services/
-│   ├── tests/
-│   └── requirements.txt
+├── frontend/                  # React + Vite Frontend
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   │   ├── ui/          # shadcn/ui components
+│   │   │   └── custom/      # Custom components
+│   │   ├── store/           # Zustand state management
+│   │   └── lib/             # Utilities
+│   ├── package.json         # Node dependencies
+│   └── .env.example         # Frontend environment template
+│
+├── scripts/                  # Utility scripts
+│   ├── create_tables.py     # Database initialization
+│   └── init_db.py
 │
 └── README.md
 ```
 
-## API Endpoints
+## 🛠️ Development Setup
 
-- `POST /api/v1/upload-resume/` - Upload and parse a resume file
-- `POST /api/v1/generate-questions/` - Generate interview questions from resume text
-- `POST /api/v1/update-question/` - Update a question with new parameters
-- `POST /api/v1/save-script/` - Save an interview script
-- `GET /api/v1/get-script/{script_id}` - Retrieve a saved script by ID
-
-API documentation available at `http://localhost:8000/docs`
-
-## Development
-
-### Frontend Development
-
-- Components use shadcn/ui - refer to [shadcn/ui documentation](https://ui.shadcn.com) for component usage
-- Styling is done with Tailwind CSS
-- State management uses Zustand
-- API integration uses React Query
-
-### Backend Development
-
-To run the test suite:
+### Backend Setup
 ```bash
-pytest
+cd backend
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your API keys
+python run.py
 ```
 
-## Deployment
+### Frontend Setup
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
 
-### Frontend Deployment
+### Database Setup
+```bash
+cd scripts
+python create_tables.py
+```
 
-1. Build the frontend:
-   ```bash
-   cd frontend
-   pnpm build
-   ```
+## 🔧 Configuration
 
-2. For production, use a Node.js server or deploy to platforms like Vercel or Netlify.
+### Backend Environment Variables
+Copy `backend/.env.example` to `backend/.env` and configure:
 
-### Backend Deployment
+- `DATABASE_URL`: Database connection string (default: SQLite)
+- `OPENAI_API_KEY`: OpenAI API key (required)
+- `GROQ_API_KEY`: Groq API key (optional)
+- `ANTHROPIC_API_KEY`: Anthropic API key (optional)
 
-1. For production, use Gunicorn with Uvicorn workers:
-   ```bash
-   gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
-   ```
+### Frontend Environment Variables
+Copy `frontend/.env.example` to `frontend/.env` and configure:
 
-2. Docker deployment:
-   ```dockerfile
-   FROM python:3.9-slim
-   
-   WORKDIR /app
-   COPY . .
-   
-   RUN pip install --no-cache-dir -r requirements.txt
-   
-   CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-   ```
+- `VITE_API_URL`: Backend API URL (default: http://localhost:8000/api/v1)
 
-## Environment Variables
+## 📊 Features
 
-### Frontend Variables
+- **Resume Upload**: Upload and parse PDF/text resumes
+- **Question Generation**: AI-powered interview question generation
+- **Question Customization**: Adjust breadth, depth, and persona
+- **Script Management**: Save and retrieve interview scripts
+- **Real-time Preview**: Live preview of questions and follow-ups
+- **Modern UI**: Built with shadcn/ui components and Tailwind CSS
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_API_URL` | Backend API URL | `http://localhost:8000` |
+## 🧪 Testing
 
-### Backend Variables
+```bash
+# Backend tests
+cd backend
+python -m pytest
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | Database connection URL | `sqlite:///./interview_scripts.db` |
-| `LLM_PROVIDER` | LLM provider to use (`openai`, `groq`, `claude`) | `openai` |
-| `OPENAI_API_KEY` | API key for OpenAI | - |
-| `GROQ_API_KEY` | API key for Groq | - |
-| `ANTHROPIC_API_KEY` | API key for Anthropic Claude | - |
-| `SECRET_KEY` | Secret key for security | `your-secret-key-here` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT token expiration time in minutes | `1440` |
-| `ALLOWED_ORIGINS` | CORS allowed origins | `http://localhost:3000` |
+# Frontend tests
+cd frontend
+npm test
+```
 
-## License
+## 🚀 Production Deployment
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Frontend Production Build
+```bash
+cd frontend
+npm run build
+# Built files will be in frontend/dist/
+```
+
+### Backend Production
+```bash
+cd backend
+pip install -r requirements.txt
+# Use a production WSGI server like Gunicorn
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000
+```
+
+## 📝 API Documentation
+
+Once the backend is running, visit:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Port already in use**: Make sure ports 8000 and 5173 are available
+2. **Database errors**: Run `cd scripts && python create_tables.py` to create tables
+3. **API connection issues**: Check that `VITE_API_URL` in frontend/.env matches your backend URL
+4. **Python import errors**: Make sure you're in the correct directory
+
+### Development Tips
+
+- Run backend and frontend in separate terminals for best development experience
+- Backend auto-reloads on file changes
+- Frontend hot-reloads on file changes
+- Check browser console and terminal logs for debugging
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.

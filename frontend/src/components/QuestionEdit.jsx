@@ -8,11 +8,12 @@ import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Loader } from './ui/loader';
 
 const QuestionEdit = () => {
   const { questionId } = useParams();
   const navigate = useNavigate();
-  const { questions, updateQuestion, updateLocalQuestion, loading } = useQuestionsStore();
+  const { questions, updateQuestion, updateLocalQuestion, loading, updatingQuestions } = useQuestionsStore();
 
   const question = questions.find(q => q.id === questionId);
   console.log('questionId:', questionId, typeof questionId);
@@ -120,11 +121,15 @@ const QuestionEdit = () => {
               <div className="flex gap-2 ml-4">
                 <Button
                   onClick={handleRegenerateFollowups}
-                  disabled={loading}
+                  disabled={updatingQuestions.has(foundQuestion.id)}
                   size="sm"
                   className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  {updatingQuestions.has(foundQuestion.id) ? (
+                    <Loader className="w-4 h-4" size="sm" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
                 </Button>
                 <Button
                   onClick={handleSave}

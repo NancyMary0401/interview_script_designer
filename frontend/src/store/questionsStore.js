@@ -9,6 +9,7 @@ const useQuestionsStore = create((set, get) => ({
   resumeText: "", // Store the original resume text
   loading: false,
   error: null,
+  updatingQuestions: new Set(), // Track which questions are being updated
 
   // Action to generate questions from a resume
   generateQuestions: async (file) => {
@@ -54,6 +55,11 @@ const useQuestionsStore = create((set, get) => ({
     const originalQuestion = currentQuestions.find(q => q.id === questionId);
     
     console.log('DEBUG: Original question controls:', originalQuestion?.controls);
+
+    // Add question to updating set
+    set(state => ({
+      updatingQuestions: new Set([...state.updatingQuestions, questionId])
+    }));
 
     // Optimistic update
     const updatedQuestions = currentQuestions.map(q =>
@@ -104,6 +110,11 @@ const useQuestionsStore = create((set, get) => ({
       console.error('Error updating question:', error);
       // Rollback on error
       set({ questions: currentQuestions, error: 'Failed to update question.' });
+    } finally {
+      // Remove question from updating set
+      set(state => ({
+        updatingQuestions: new Set([...state.updatingQuestions].filter(id => id !== questionId))
+      }));
     }
   },
 
@@ -168,10 +179,27 @@ const useQuestionsStore = create((set, get) => ({
   },
 
   // Action to delete a question
-  deleteQuestion: (questionId) => {
+  deleteQuestion: async (questionId) => {
+    // Add question to updating set
     set(state => ({
-      questions: state.questions.filter(q => q.id !== questionId)
+      updatingQuestions: new Set([...state.updatingQuestions, questionId])
     }));
+
+    try {
+      // For now, just remove from local state
+      // In the future, you might want to call an API endpoint to delete from backend
+      set(state => ({
+        questions: state.questions.filter(q => q.id !== questionId)
+      }));
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      set({ error: 'Failed to delete question.' });
+    } finally {
+      // Remove question from updating set
+      set(state => ({
+        updatingQuestions: new Set([...state.updatingQuestions].filter(id => id !== questionId))
+      }));
+    }
   },
 
   // Action to save the entire script

@@ -45,12 +45,12 @@ const QuestionList = () => {
     navigate(`/edit/${questionId}`);
   };
 
-  const handleDelete = (questionId) => {
+  const handleDelete = async (questionId) => {
     // Find the index of the question being deleted
     const questionIndex = filteredQuestions.findIndex(q => q.id === questionId);
     
     // Delete the question from the store
-    deleteQuestion(questionId);
+    await deleteQuestion(questionId);
     
     // Handle navigation after deletion
     if (viewMode === 'single') {

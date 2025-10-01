@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here"  # Change in production
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
+    # CORS settings
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",

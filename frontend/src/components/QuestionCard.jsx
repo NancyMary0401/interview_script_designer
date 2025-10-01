@@ -5,6 +5,8 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Loader } from './ui/loader';
+import useQuestionsStore from '../store/questionsStore';
 
 const QuestionCard = ({ 
   question, 
@@ -16,6 +18,7 @@ const QuestionCard = ({
 }) => {
   const [isFollowUpOpen, setIsFollowUpOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { updatingQuestions } = useQuestionsStore();
 
   const getDepthLabel = (depth) => {
     if (depth === 0) return 'None';
@@ -135,8 +138,16 @@ const QuestionCard = ({
                     <Button
                       variant="destructive"
                       onClick={handleDelete}
+                      disabled={updatingQuestions.has(question.id)}
                     >
-                      Delete Question
+                      {updatingQuestions.has(question.id) ? (
+                        <>
+                          <Loader className="w-4 h-4 mr-2" size="sm" />
+                          Deleting...
+                        </>
+                      ) : (
+                        'Delete Question'
+                      )}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
