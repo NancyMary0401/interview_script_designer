@@ -69,7 +69,11 @@ CRITICAL REQUIREMENTS:
    - Depth: {depth}
    - Persona: {persona}
 
-IMPORTANT: When depth is {depth}, return an empty follow_ups array for each question.
+IMPORTANT: 
+- When breadth is "Low": ALWAYS include exactly 1 follow-up question (even if depth is 0)
+- When breadth is "Medium" or "High": Follow depth rules for nested questions
+- When depth is 0: Follow-up questions should have empty nested arrays
+- When depth > 0: Follow-up questions should have nested questions based on depth
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -83,7 +87,12 @@ Return ONLY valid JSON in this exact format:
         "depth": {depth},
         "persona": "{persona}"
       }},
-      "follow_ups": []  # Empty array when depth is {depth}
+      "follow_ups": [
+        {{
+          "question": "Follow-up question text",
+          "nested": []  # Empty when depth is 0, populated when depth > 0
+        }}
+      ]
     }},
     {{
       "id": 2,
@@ -94,7 +103,12 @@ Return ONLY valid JSON in this exact format:
         "depth": {depth},
         "persona": "{persona}"
       }},
-      "follow_ups": []  # Empty array when depth is {depth}
+      "follow_ups": [
+        {{
+          "question": "Follow-up question text",
+          "nested": []  # Empty when depth is 0, populated when depth > 0
+        }}
+      ]
     }}
     // ... continue for all {num_questions} questions
   ]
@@ -123,7 +137,10 @@ CRITICAL REQUIREMENTS:
 IMPORTANT: 
 - Extract {num_questions} different technical claims from the resume
 - Create one main question for each claim
-- When depth is {depth}, return empty follow_ups array
+- When breadth is "Low": ALWAYS include exactly 1 follow-up question (even if depth is 0)
+- When breadth is "Medium" or "High": Follow depth rules for nested questions
+- When depth is 0: Follow-up questions should have empty nested arrays
+- When depth > 0: Follow-up questions should have nested questions based on depth
 - Make questions specific to the candidate's actual experience
 
 Return only valid JSON with exactly {num_questions} questions."""
@@ -155,7 +172,7 @@ CRITICAL REQUIREMENTS:
    For breadth="Medium": Generate EXACTLY 2-3 follow-ups
    For breadth="High": Generate EXACTLY 4-5 follow-ups
 
-2. For depth=0: Return EMPTY follow_ups array (no follow-ups)
+2. For depth=0: Each follow-up has NO nested questions (empty nested arrays)
    For depth=1: Each follow-up MUST have EXACTLY 1 nested question
    For depth=2: Each follow-up MUST have EXACTLY 2-3 nested questions
    For depth=3: Each follow-up MUST have EXACTLY 4-5 nested questions
@@ -176,8 +193,15 @@ Return ONLY valid JSON in this exact format:
     "depth": <provided_depth>,
     "persona": "<provided_persona>"
   }},
-  "follow_ups": []  # Empty array when depth is 0, or array of follow-ups when depth > 0
+  "follow_ups": [
+    {{
+      "question": "Follow-up question text",
+      "nested": ["nested question 1", "nested question 2"]
+    }}
+  ]
 }}
+
+IMPORTANT: Use "nested" (not "nested_questions") for the nested questions array.
 
 Do not include any other text or explanations."""
 
@@ -207,7 +231,7 @@ REQUIRED PARAMETERS - YOU MUST FOLLOW THESE EXACTLY:
 
 2. Depth: {current_depth}
    - This determines the number of nested questions per follow-up
-   - 0: NO follow-ups (return empty follow_ups array)
+   - 0: Follow-ups with NO nested questions (empty nested arrays)
    - 1: EXACTLY 1 nested question per follow-up
    - 2: EXACTLY 2-3 nested questions per follow-up
    - 3: EXACTLY 4-5 nested questions per follow-up
@@ -271,7 +295,7 @@ Return only valid JSON with the updated follow-ups."""
         # Depth instructions - number of nested questions per follow-up
         # UI mapping: 0=None, 1=Low, 2=Medium, 3=High
         if depth == 0:
-            instructions.append("DEPTH 0: No follow-up or nested questions required.")
+            instructions.append("DEPTH 0: Each follow-up should have NO nested questions (empty nested arrays).")
         elif depth == 1:
             instructions.append("DEPTH 1 (Low): Each follow-up should have exactly 1 nested question.")
         elif depth == 2:
@@ -441,8 +465,24 @@ Return only valid JSON with the updated follow-ups."""
             persona = controls.get("persona", "Why-How")
             
             # Special case: if depth is 0, no nested questions are required
+            # But if breadth is "Low", we still need exactly 1 follow-up question
             if depth == 0:
-                question["follow_ups"] = []
+                if breadth == "Low":
+                    # For Low breadth with depth 0, ensure exactly 1 follow-up with empty nested
+                    question["follow_ups"] = [
+                        {
+                            "question": self._generate_follow_up_question_by_persona(
+                                claim=question.get("claim", "Technical experience"),
+                                index=0,
+                                persona=persona
+                            ),
+                            "nested": []
+                        }
+                    ]
+                else:
+                    # For Medium/High breadth with depth 0, no follow-ups needed
+                    question["follow_ups"] = []
+                
                 question["controls"] = {
                     "breadth": breadth,
                     "depth": depth,
@@ -550,18 +590,6 @@ Return only valid JSON with the updated follow-ups."""
             
             logger.info(f"DEBUG: Extracted controls - breadth: {breadth}, depth: {depth}, persona: {persona}")
             
-            # Special case: if depth is 0, no follow-ups are required
-            if depth == 0:
-                logger.info(f"DEBUG: Depth is 0, setting empty follow_ups array")
-                question["follow_ups"] = []
-                question["controls"] = {
-                    "breadth": breadth,
-                    "depth": depth,
-                    "persona": persona
-                }
-                logger.info(f"DEBUG: Returning question with empty follow_ups")
-                return question
-            
             # Determine required counts
             follow_up_counts = {
                 "Low": 1,
@@ -569,6 +597,7 @@ Return only valid JSON with the updated follow-ups."""
                 "High": (4, 5)
             }
             nested_counts = {
+                0: 0,  # No nested questions
                 1: 1,
                 2: (2, 3),
                 3: (4, 5)
@@ -650,9 +679,24 @@ Return only valid JSON with the updated follow-ups."""
         match = re.search(question_pattern, response, re.DOTALL)
         
         if match:
-            # Special case: if depth is 0, no follow-ups
+            # Special case: if depth is 0, no nested questions
+            # But if breadth is "Low", we still need exactly 1 follow-up question
             if depth == 0:
-                follow_ups = []
+                if breadth == "Low":
+                    # For Low breadth with depth 0, ensure exactly 1 follow-up with empty nested
+                    follow_ups = [
+                        {
+                            "question": self._generate_follow_up_question_by_persona(
+                                claim=match.group(2),
+                                index=0,
+                                persona=persona
+                            ),
+                            "nested": []
+                        }
+                    ]
+                else:
+                    # For Medium/High breadth with depth 0, no follow-ups needed
+                    follow_ups = []
             else:
                 # Generate appropriate number of follow-ups based on breadth
                 follow_ups = []
@@ -814,37 +858,58 @@ Return only valid JSON with the updated follow-ups."""
         """Generate an additional question when we don't have enough"""
         # Generate appropriate number of follow-ups based on breadth
         follow_ups = []
-        if breadth == "Low":
-            num_follow_ups = 1
-        elif breadth == "Medium":
-            num_follow_ups = 2
-        else:  # High
-            num_follow_ups = 4
         
-        # Generate appropriate number of nested questions based on depth
-        num_nested = 1 if depth == 1 else (2 if depth == 2 else 4)
-        
-        # Generate follow-ups with correct counts
-        for i in range(num_follow_ups):
-            nested_questions = []
-            for j in range(num_nested):
-                nested_questions.append(
-                    self._generate_nested_question_by_persona(
-                        claim="Technical experience",
-                        follow_up_index=i,
-                        nested_index=j,
-                        persona=persona
-                    )
-                )
+        # Special case: if depth is 0, no nested questions
+        # But if breadth is "Low", we still need exactly 1 follow-up question
+        if depth == 0:
+            if breadth == "Low":
+                # For Low breadth with depth 0, ensure exactly 1 follow-up with empty nested
+                follow_ups = [
+                    {
+                        "question": self._generate_follow_up_question_by_persona(
+                            claim="Technical experience",
+                            index=0,
+                            persona=persona
+                        ),
+                        "nested": []
+                    }
+                ]
+            else:
+                # For Medium/High breadth with depth 0, no follow-ups needed
+                follow_ups = []
+        else:
+            # Normal case: depth > 0
+            if breadth == "Low":
+                num_follow_ups = 1
+            elif breadth == "Medium":
+                num_follow_ups = 2
+            else:  # High
+                num_follow_ups = 4
             
-            follow_ups.append({
-                "question": self._generate_follow_up_question_by_persona(
-                    claim="Technical experience",
-                    index=i,
-                    persona=persona
-                ),
-                "nested": nested_questions
-            })
+            # Generate appropriate number of nested questions based on depth
+            num_nested = 1 if depth == 1 else (2 if depth == 2 else 4)
+            
+            # Generate follow-ups with correct counts
+            for i in range(num_follow_ups):
+                nested_questions = []
+                for j in range(num_nested):
+                    nested_questions.append(
+                        self._generate_nested_question_by_persona(
+                            claim="Technical experience",
+                            follow_up_index=i,
+                            nested_index=j,
+                            persona=persona
+                        )
+                    )
+                
+                follow_ups.append({
+                    "question": self._generate_follow_up_question_by_persona(
+                        claim="Technical experience",
+                        index=i,
+                        persona=persona
+                    ),
+                    "nested": nested_questions
+                })
         
         return {
             "id": question_id,
