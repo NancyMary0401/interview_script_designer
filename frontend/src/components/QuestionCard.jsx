@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, MessageSquare, Edit, BarChart3, User, Settings2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, MessageSquare, Edit, BarChart3, User, Settings2, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 
 const QuestionCard = ({ 
   question, 
   questionNumber, 
   totalQuestions, 
   onEdit, 
+  onDelete,
   isCurrentQuestion = false 
 }) => {
   const [isFollowUpOpen, setIsFollowUpOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const getDepthLabel = (depth) => {
     if (depth === 0) return 'None';
@@ -50,6 +53,13 @@ const QuestionCard = ({
   const persona = question.controls?.persona || question.persona;
   const depth = getDepthLabel(question.controls?.depth ?? question.depth);
 
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(question.id);
+    }
+    setIsDeleteDialogOpen(false);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -80,15 +90,58 @@ const QuestionCard = ({
                 Question {questionNumber} of {totalQuestions}
               </div>
             </div>
-            <Button
-              onClick={() => onEdit(question.id)}
-              size="sm"
-              variant="outline"
-              className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 border-purple-200"
-            >
-              <Edit className="w-4 h-4 mr-1" />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => onEdit(question.id)}
+                size="sm"
+                variant="outline"
+                className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 border-purple-200"
+              >
+                <Edit className="w-4 h-4 mr-1" />
+                Edit
+              </Button>
+              
+              <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-800 hover:bg-red-50 border-red-200"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Question</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete this question? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <p className="text-sm text-gray-600 font-medium mb-2">Question to be deleted:</p>
+                    <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-md">
+                      {question.main_question}
+                    </p>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsDeleteDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDelete}
+                    >
+                      Delete Question
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           {/* Main Question */}

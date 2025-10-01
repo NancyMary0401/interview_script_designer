@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
+import { Copy } from 'lucide-react';
 import useQuestionsStore from '../store/questionsStore';
+import { useToast } from './ui/use-toast';
 
 const JsonViewer = ({ children }) => {
   const questions = useQuestionsStore(state => state.questions);
   const [jsonString, setJsonString] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     setJsonString(JSON.stringify(questions, null, 2));
   }, [questions]);
 
-  const handleSave = () => {
-    // In a real app, you might want to parse and update the store here
-    // For now, we just close the dialog
-    console.log('JSON saved (locally in component state)');
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonString);
+      toast({
+        title: 'Copied!',
+        description: 'JSON content has been copied to clipboard.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Copy Failed',
+        description: 'Failed to copy to clipboard. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -35,7 +48,10 @@ const JsonViewer = ({ children }) => {
           />
         </div>
         <DialogFooter className="mt-4">
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button onClick={handleCopy} variant="outline" className="flex items-center gap-2">
+            <Copy className="w-4 h-4" />
+            Copy to Clipboard
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -6,12 +6,14 @@ import QuestionCard from './QuestionCard';
 import FilterControls from './FilterControls';
 import ProgressTracker from './ProgressTracker';
 import QuestionNavigation from './QuestionNavigation';
+import AddQuestion from './AddQuestion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Eye, EyeOff, Grid3X3, List } from 'lucide-react';
 
 const QuestionList = () => {
   const questions = useQuestionsStore(state => state.questions);
+  const deleteQuestion = useQuestionsStore(state => state.deleteQuestion);
   const navigate = useNavigate();
   
   // State for UI controls
@@ -41,6 +43,27 @@ const QuestionList = () => {
 
   const handleEdit = (questionId) => {
     navigate(`/edit/${questionId}`);
+  };
+
+  const handleDelete = (questionId) => {
+    // Find the index of the question being deleted
+    const questionIndex = filteredQuestions.findIndex(q => q.id === questionId);
+    
+    // Delete the question from the store
+    deleteQuestion(questionId);
+    
+    // Handle navigation after deletion
+    if (viewMode === 'single') {
+      if (filteredQuestions.length === 1) {
+        // If this was the last question, reset to 0
+        setCurrentQuestionIndex(0);
+      } else if (questionIndex <= currentQuestionIndex) {
+        // If we deleted a question at or before current position, adjust index
+        const newIndex = Math.max(0, currentQuestionIndex - 1);
+        setCurrentQuestionIndex(newIndex);
+      }
+      // If we deleted a question after current position, no need to adjust
+    }
   };
 
   const handleFilterChange = (filterType, value) => {
@@ -136,16 +159,7 @@ const QuestionList = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setShowFilters(!showFilters)}
-            variant="outline"
-            size="sm"
-            className="text-gray-600 hover:text-gray-800"
-          >
-            {showFilters ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </Button>
-          
+          <AddQuestion />
           <div className="flex rounded-lg border border-gray-200 p-1 bg-white">
             <Button
               onClick={() => setViewMode('single')}
@@ -201,6 +215,7 @@ const QuestionList = () => {
                 questionNumber={currentQuestionIndex + 1}
                 totalQuestions={filteredQuestions.length}
                 onEdit={handleEdit}
+                onDelete={handleDelete}
                 isCurrentQuestion={true}
               />
             </motion.div>
@@ -221,6 +236,7 @@ const QuestionList = () => {
                   questionNumber={index + 1}
                   totalQuestions={filteredQuestions.length}
                   onEdit={handleEdit}
+                  onDelete={handleDelete}
                   isCurrentQuestion={false}
                 />
               ))}

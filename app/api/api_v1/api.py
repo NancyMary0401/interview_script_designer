@@ -85,6 +85,73 @@ async def generate_questions(
             detail=f"Failed to generate questions: {str(e)}"
         )
 
+@api_router.post("/add-question/", response_model=dict)
+async def add_question(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Add a new question manually to the interview script.
+    
+    Accepts question data and generates follow-up questions using LLM.
+    """
+    try:
+        # Extract data from request
+        resume_text = request.get("resume_text", "")
+        question_data = request.get("question", {})
+        
+        # Validate required fields
+        if not question_data.get("main_question"):
+            raise ValueError("Main question is required")
+        
+        # Get parameters with defaults
+        breadth = question_data.get("breadth", "Low")
+        depth = question_data.get("depth", 0)
+        persona = question_data.get("persona", "Why-How")
+        claim = question_data.get("claim", "")
+        
+        # Generate a unique ID (simple increment from existing questions)
+        # In a real app, you'd want to track this properly
+        new_id = 999  # Temporary ID, will be replaced by frontend
+        
+        # Create the question object
+        new_question = {
+            "id": new_id,
+            "claim": claim,
+            "main_question": question_data["main_question"],
+            "controls": {
+                "breadth": breadth,
+                "depth": depth,
+                "persona": persona
+            },
+            "follow_ups": []
+        }
+        
+        # Generate follow-up questions using LLM
+        if resume_text:
+            try:
+                # Use the existing update_question method to generate follow-ups
+                updated_question = await llm_service.update_question(
+                    resume_text=resume_text,
+                    question=new_question,
+                    breadth=breadth,
+                    depth=depth,
+                    persona=persona
+                )
+                new_question = updated_question
+            except Exception as e:
+                logger.warning(f"Failed to generate follow-ups for new question: {str(e)}")
+                # Continue without follow-ups if LLM fails
+        
+        return {"status": "success", "data": new_question}
+        
+    except Exception as e:
+        logger.error(f"Error adding question: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add question: {str(e)}"
+        )
+
 @api_router.post("/update-question/", response_model=dict)
 async def update_question(
     request: dict,
@@ -179,8 +246,17 @@ async def save_script(
     Save an interview script to the database.
     """
     try:
-        # Convert questions to JSON string
-        questions_json = json.dumps(script_data.questions_json) if isinstance(script_data.questions_json, (dict, list)) else script_data.questions_json
+        # questions_json should already be a JSON string from the frontend
+        # Just validate it's valid JSON
+        if isinstance(script_data.questions_json, str):
+            try:
+                json.loads(script_data.questions_json)  # Validate it's valid JSON
+                questions_json = script_data.questions_json
+            except json.JSONDecodeError:
+                raise ValueError("questions_json must be valid JSON string")
+        else:
+            # If it's not a string, convert it to JSON string
+            questions_json = json.dumps(script_data.questions_json)
         
         # Create new script record
         db_script = Script(
@@ -199,7 +275,7 @@ async def save_script(
         db.rollback()
         logger.error(f"Error saving script: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Failed to save script: {str(e)}"
         )
 

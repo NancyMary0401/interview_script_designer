@@ -116,12 +116,83 @@ const useQuestionsStore = create((set, get) => ({
     }));
   },
 
+  // Action to add a new question
+  addQuestion: async (questionData) => {
+    set({ loading: true, error: null });
+    try {
+      const resumeText = get().resumeText;
+      
+      // Generate a unique ID for the new question
+      const currentQuestions = get().questions;
+      const maxId = currentQuestions.length > 0 ? Math.max(...currentQuestions.map(q => q.id)) : 0;
+      const newId = maxId + 1;
+      
+      // Prepare the request data
+      const requestData = {
+        resume_text: resumeText,
+        question: {
+          id: newId,
+          main_question: questionData.main_question,
+          breadth: questionData.breadth || "Low",
+          depth: questionData.depth || 0,
+          persona: questionData.persona || "Why-How",
+          claim: questionData.claim || ""
+        }
+      };
+
+      const response = await axios.post(`${API_URL}/add-question/`, requestData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const newQuestion = response.data.data;
+      
+      // Validate that we got a proper question object
+      if (!newQuestion || typeof newQuestion !== 'object' || !newQuestion.id) {
+        throw new Error('Invalid response format from server');
+      }
+
+      // Add the new question to the store
+      set(state => ({
+        questions: [...state.questions, newQuestion],
+        loading: false
+      }));
+
+      return newQuestion;
+    } catch (error) {
+      console.error('Error adding question:', error);
+      set({ error: 'Failed to add question.', loading: false });
+      throw error;
+    }
+  },
+
+  // Action to delete a question
+  deleteQuestion: (questionId) => {
+    set(state => ({
+      questions: state.questions.filter(q => q.id !== questionId)
+    }));
+  },
+
   // Action to save the entire script
   saveScript: async () => {
     set({ loading: true, error: null });
     try {
-      const script = get().questions;
-      await axios.post(`${API_URL}/save-script/`, { questions: script });
+      const questions = get().questions;
+      const resumeText = get().resumeText;
+      
+      // Prepare the payload according to ScriptCreate model
+      const payload = {
+        recruiter_id: "default_recruiter", // TODO: Make this configurable
+        resume_text: resumeText || "",
+        questions_json: JSON.stringify(questions)
+      };
+      
+      await axios.post(`${API_URL}/save-script/`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       set({ loading: false });
       // Optionally, show a success message to the user
     } catch (error) {
