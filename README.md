@@ -204,7 +204,7 @@ The following variables can be configured in `backend/.env`:
 | `OPENAI_API_KEY` | OpenAI API key | Yes* | - |
 | `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4o-mini` |
 | `GROQ_API_KEY` | Groq API key | No | - |
-| `GROQ_MODEL` | Groq model to use | No | `llama-3.1-70b-versatile` |
+| `GROQ_MODEL` | Groq model to use | No | `llama-3.3-70b-versatile` |
 | `SECRET_KEY` | Secret key for JWT tokens | Yes | - |
 | `ALLOWED_ORIGINS` | CORS allowed origins | No | `http://localhost:5173,http://localhost:3000` |
 
