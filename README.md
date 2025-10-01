@@ -2,44 +2,146 @@
 
 A full-stack application for generating and managing technical interview scripts based on candidate resumes. Built with React + Vite, shadcn/ui components, and FastAPI.
 
+## 📋 Prerequisites
+
+Before setting up the project, ensure you have the following installed:
+
+- **Node.js** (v18.0.0 or higher) - [Download here](https://nodejs.org/)
+- **Python** (v3.8 or higher) - [Download here](https://www.python.org/downloads/)
+- **OpenAI API Key** - [Get your API key](https://platform.openai.com/api-keys)
+
+### Optional Prerequisites
+- **Groq API Key** - [Get your API key](https://console.groq.com/)
+
+
 ## 🚀 Quick Start
 
+### 1. Clone and Setup
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd interview_script_designer
 
-# Install dependencies
-cd backend && pip install -r requirements.txt
-cd ../frontend && npm install
+# Create Python virtual environment (recommended)
+python -m venv venv
 
-# Copy environment files
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# Edit backend/.env with your API keys
-
-# Initialize database
-cd scripts && python create_tables.py
-
-# Start development servers (in separate terminals)
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
 ```
 
-**Start Development Servers:**
+### 2. Backend Setup
 ```bash
-# Terminal 1 - Backend
+# Install Python dependencies
+cd backend
+pip install -r requirements.txt
+
+# Create environment file
+# Create backend/.env with the configuration below
+```
+
+**Create `backend/.env` with the following content:**
+```env
+# Database Configuration
+DATABASE_URL=sqlite:///./interview_scripts.db
+
+# LLM Provider Configuration
+# Choose one provider: openai, groq, or claude
+LLM_PROVIDER=openai
+
+# OpenAI Configuration (required if using OpenAI)
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+
+# Groq Configuration (optional)
+# GROQ_API_KEY=your_groq_api_key_here
+# GROQ_MODEL=llama-3.1-70b-versatile
+
+
+# Security Configuration
+# Change this to a secure random string in production
+SECRET_KEY=your-secret-key-here-change-in-production
+ACCESS_TOKEN_EXPIRE_MINUTES=11520
+
+# CORS Configuration
+# Add your frontend URLs here (comma-separated)
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Project Configuration
+PROJECT_NAME=Interview Script Designer
+API_V1_STR=/api/v1
+```
+
+### 3. Frontend Setup
+```bash
+# Install Node.js dependencies
+cd ../frontend
+npm install
+
+# Create environment file
+# Create frontend/.env with the configuration below
+```
+
+**Create `frontend/.env` with the following content:**
+```env
+# Backend API Configuration
+# URL of your backend API server
+VITE_API_URL=http://localhost:8000/api/v1
+
+# Development Configuration
+# Uncomment and modify if needed for development
+# VITE_DEV_PORT=5173
+# VITE_DEV_HOST=localhost
+```
+
+### 4. Database Setup
+```bash
+# Initialize database tables
+cd ../scripts
+python create_tables.py
+```
+
+### 5. Start Development Servers
+
+**Terminal 1 - Backend:**
+```bash
 cd backend
 python run.py
+```
 
-# Terminal 2 - Frontend  
+**Terminal 2 - Frontend:**
+```bash
 cd frontend
 npm run dev
 ```
 
-The application will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+### 6. Verify Installation
+
+**Test Backend:**
+```bash
+# In backend directory
+python -c "from app.main import app; print('✅ Backend imports successfully')"
+```
+
+**Test Frontend:**
+```bash
+# In frontend directory
+npm run dev
+```
+
+### 7. Access the Application
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+
+### 8. First Steps
+
+1. **Upload a Resume**: Use the resume upload feature to test the application
+2. **Generate Questions**: Create interview questions based on the uploaded resume
+3. **Test API**: Visit http://localhost:8000/docs to explore the API endpoints
+4. **Save Scripts**: Test the script saving functionality
 
 ## 📁 Project Structure
 
@@ -55,7 +157,6 @@ interview_script_designer/
 │   ├── tests/                # Backend tests
 │   ├── requirements.txt      # Python dependencies
 │   ├── run.py               # Server runner
-│   └── .env.example         # Environment template
 │
 ├── frontend/                  # React + Vite Frontend
 │   ├── src/
@@ -64,8 +165,7 @@ interview_script_designer/
 │   │   │   └── custom/      # Custom components
 │   │   ├── store/           # Zustand state management
 │   │   └── lib/             # Utilities
-│   ├── package.json         # Node dependencies
-│   └── .env.example         # Frontend environment template
+│   └── package.json         # Node dependencies
 │
 ├── scripts/                  # Utility scripts
 │   ├── create_tables.py     # Database initialization
@@ -74,45 +174,50 @@ interview_script_designer/
 └── README.md
 ```
 
-## 🛠️ Development Setup
 
-### Backend Setup
-```bash
-cd backend
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your API keys
-python run.py
-```
+## 🔑 Getting API Keys
 
-### Frontend Setup
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
+### OpenAI API Key (Required)
+1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Sign up or log in to your account
+3. Click "Create new secret key"
+4. Copy the key and add it to your `backend/.env` file
+5. **Important**: Add billing information to your OpenAI account to use the API
 
-### Database Setup
-```bash
-cd scripts
-python create_tables.py
-```
+### Optional: Groq API Key
+1. Visit [Groq Console](https://console.groq.com/)
+2. Sign up for a free account
+3. Navigate to API Keys section
+4. Create a new API key
+5. Add it to your `backend/.env` file
+
 
 ## 🔧 Configuration
 
 ### Backend Environment Variables
-Copy `backend/.env.example` to `backend/.env` and configure:
+The following variables can be configured in `backend/.env`:
 
-- `DATABASE_URL`: Database connection string (default: SQLite)
-- `OPENAI_API_KEY`: OpenAI API key (required)
-- `GROQ_API_KEY`: Groq API key (optional)
-- `ANTHROPIC_API_KEY`: Anthropic API key (optional)
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `DATABASE_URL` | Database connection string | No | `sqlite:///./interview_scripts.db` |
+| `LLM_PROVIDER` | AI provider to use (`openai`, `groq`, `claude`) | Yes | `openai` |
+| `OPENAI_API_KEY` | OpenAI API key | Yes* | - |
+| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4o-mini` |
+| `GROQ_API_KEY` | Groq API key | No | - |
+| `GROQ_MODEL` | Groq model to use | No | `llama-3.1-70b-versatile` |
+| `SECRET_KEY` | Secret key for JWT tokens | Yes | - |
+| `ALLOWED_ORIGINS` | CORS allowed origins | No | `http://localhost:5173,http://localhost:3000` |
+
+*Required if using OpenAI as LLM provider
 
 ### Frontend Environment Variables
-Copy `frontend/.env.example` to `frontend/.env` and configure:
+The following variables can be configured in `frontend/.env`:
 
-- `VITE_API_URL`: Backend API URL (default: http://localhost:8000/api/v1)
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `VITE_API_URL` | Backend API URL | Yes | `http://localhost:8000/api/v1` |
+| `VITE_DEV_PORT` | Development server port | No | `5173` |
+| `VITE_DEV_HOST` | Development server host | No | `localhost` |
 
 ## 📊 Features
 
@@ -123,34 +228,6 @@ Copy `frontend/.env.example` to `frontend/.env` and configure:
 - **Real-time Preview**: Live preview of questions and follow-ups
 - **Modern UI**: Built with shadcn/ui components and Tailwind CSS
 
-## 🧪 Testing
-
-```bash
-# Backend tests
-cd backend
-python -m pytest
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## 🚀 Production Deployment
-
-### Frontend Production Build
-```bash
-cd frontend
-npm run build
-# Built files will be in frontend/dist/
-```
-
-### Backend Production
-```bash
-cd backend
-pip install -r requirements.txt
-# Use a production WSGI server like Gunicorn
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000
-```
 
 ## 📝 API Documentation
 
@@ -158,30 +235,11 @@ Once the backend is running, visit:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-## 🔧 Troubleshooting
 
-### Common Issues
+### Environment-Specific Issues
 
-1. **Port already in use**: Make sure ports 8000 and 5173 are available
-2. **Database errors**: Run `cd scripts && python create_tables.py` to create tables
-3. **API connection issues**: Check that `VITE_API_URL` in frontend/.env matches your backend URL
-4. **Python import errors**: Make sure you're in the correct directory
+#### Windows
+- Use `venv\Scripts\activate` to activate virtual environment
 
-### Development Tips
-
-- Run backend and frontend in separate terminals for best development experience
-- Backend auto-reloads on file changes
-- Frontend hot-reloads on file changes
-- Check browser console and terminal logs for debugging
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
+#### macOS/Linux
+- Use `source venv/bin/activate` to activate virtual environment
